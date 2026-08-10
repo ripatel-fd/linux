@@ -4628,7 +4628,8 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 
 		vmcb_mark_all_clean(svm->vmcb);
 
-		if (!msr_write_intercepted(svm, MSR_AMD64_PERF_CNTR_GLOBAL_CTL))
+		if (!kvm_vcpu_has_mediated_pmu_caps(vcpu, KVM_MEDIATED_PMU_CAP_HW_SWITCHED) &&
+		    !msr_write_intercepted(svm, MSR_AMD64_PERF_CNTR_GLOBAL_CTL))
 			rdmsrq(MSR_AMD64_PERF_CNTR_GLOBAL_CTL,
 			       vcpu_to_pmu(vcpu)->global_ctrl);
 	}
