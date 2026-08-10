@@ -9330,6 +9330,7 @@ int kvm_arch_vcpu_precreate(struct kvm *kvm, unsigned int id)
 		if (irqchip_in_kernel(kvm)) {
 			r = perf_create_mediated_pmu();
 			if (r) {
+				kvm->arch.mediated_pmu_caps = 0;
 				pr_warn_ratelimited(PERF_MEDIATED_PMU_MSG);
 				return r;
 			}
@@ -9338,6 +9339,7 @@ int kvm_arch_vcpu_precreate(struct kvm *kvm, unsigned int id)
 			kvm->arch.enable_pmu = false;
 		}
 	}
+
 	return 0;
 }
 
