@@ -1228,6 +1228,7 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
 	save->idtr.limit = 0xffff;
 
 	if (!init_event) {
+		svm->msr_guest_fred_rsp0 = 0;
 		save->fred_rsp1 = 0;
 		save->fred_rsp2 = 0;
 		save->fred_rsp3 = 0;
@@ -1459,6 +1460,11 @@ static void svm_srso_vm_init(void) { }
 static void svm_srso_vm_destroy(void) { }
 #endif
 
+static bool svm_manages_fred_rsp0(struct kvm_vcpu *vcpu)
+{
+	return !is_sev_es_guest(vcpu) && guest_cpu_cap_has(vcpu, X86_FEATURE_FRED);
+}
+
 static void svm_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
@@ -1496,12 +1502,32 @@ static void svm_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 		sd->bp_spec_reduce_set = true;
 		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_ZEN4_BP_CFG_BP_SPEC_REDUCE_BIT);
 	}
+
+	/* Hardware does not save/restore FRED_RSP0 for Non-SEV-ES guests. */
+	if (svm_manages_fred_rsp0(vcpu))
+		wrmsrq(MSR_IA32_FRED_RSP0, svm->msr_guest_fred_rsp0);
+
 	svm->guest_state_loaded = true;
 }
 
 static void svm_prepare_host_switch(struct kvm_vcpu *vcpu)
 {
-	to_svm(vcpu)->guest_state_loaded = false;
+	struct vcpu_svm *svm = to_svm(vcpu);
+
+	if (!svm->guest_state_loaded)
+		return;
+
+	/*
+	 * Hardware does not save/restore FRED_RSP0 for Non-SEV-ES guests.
+	 * Also, sync hardware MSR value to per-CPU cache. This helps in
+	 * restoring Host RSP0 when exiting to userspace in fred_update_rsp0().
+	 */
+	if (svm_manages_fred_rsp0(vcpu)) {
+		rdmsrq(MSR_IA32_FRED_RSP0, svm->msr_guest_fred_rsp0);
+		fred_sync_rsp0(svm->msr_guest_fred_rsp0);
+	}
+
+	svm->guest_state_loaded = false;
 }
 
 static void svm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
