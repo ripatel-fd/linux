@@ -4965,6 +4965,11 @@ static void svm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 	if (guest_cpuid_is_intel_compatible(vcpu))
 		guest_cpu_cap_clear(vcpu, X86_FEATURE_V_VMSAVE_VMLOAD);
 
+	if (guest_cpu_cap_has(vcpu, X86_FEATURE_FRED))
+		svm->vmcb->control.misc_ctl2 |= SVM_MISC2_ENABLE_V_FRED;
+	else
+		svm->vmcb->control.misc_ctl2 &= ~SVM_MISC2_ENABLE_V_FRED;
+
 	if (is_sev_guest(vcpu))
 		sev_vcpu_after_set_cpuid(svm);
 }
@@ -5731,9 +5736,6 @@ static __init void svm_set_cpu_caps(void)
 
 	kvm_cpu_cap_clear(X86_FEATURE_IBT);
 
-	/* SVM FRED virtualization not implemented yet */
-	kvm_cpu_cap_clear(X86_FEATURE_FRED);
-
 	/* CPUID 0x80000001 and 0x8000000A (SVM features) */
 	if (nested) {
 		kvm_cpu_cap_set(X86_FEATURE_SVM);
@@ -5810,6 +5812,9 @@ static __init void svm_set_cpu_caps(void)
 
 	/* CPUID 0x8000001F (SME/SEV features) */
 	sev_set_cpu_caps();
+
+	if (!vnmi)
+		kvm_cpu_cap_clear(X86_FEATURE_FRED);
 
 	/*
 	 * Clear capabilities that are automatically configured by common code,
