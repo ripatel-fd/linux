@@ -369,6 +369,8 @@ struct vcpu_svm {
 
 	bool guest_state_loaded;
 
+	u64 msr_guest_fred_rsp0;
+
 	bool avic_irq_window;
 	bool x2avic_msrs_intercepted;
 	bool lbr_msrs_intercepted;
