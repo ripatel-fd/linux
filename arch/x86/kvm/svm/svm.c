@@ -1211,6 +1211,17 @@ static void init_vmcb(struct kvm_vcpu *vcpu, bool init_event)
 	save->idtr.base = 0;
 	save->idtr.limit = 0xffff;
 
+	if (!init_event) {
+		save->fred_rsp1 = 0;
+		save->fred_rsp2 = 0;
+		save->fred_rsp3 = 0;
+		save->fred_stklvls = 0;
+		save->fred_ssp1 = 0;
+		save->fred_ssp2 = 0;
+		save->fred_ssp3 = 0;
+		save->fred_config = 0;
+	}
+
 	init_sys_seg(&save->ldtr, SEG_TYPE_LDT);
 	init_sys_seg(&save->tr, SEG_TYPE_BUSY_TSS16);
 
