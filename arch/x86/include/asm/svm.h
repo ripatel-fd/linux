@@ -673,6 +673,7 @@ static inline void __unused_size_checks(void)
 
 #define SVM_EVTINJ_VALID (1 << 31)
 #define SVM_EVTINJ_VALID_ERR (1 << 11)
+#define SVM_EVTINJ_NESTED_EXCEPTION    (1 << 13)
 
 #define SVM_EVTINJ_RESERVED_BITS ~(SVM_EVTINJ_VEC_MASK | SVM_EVTINJ_TYPE_MASK | \
 				   SVM_EVTINJ_VALID_ERR | SVM_EVTINJ_VALID)

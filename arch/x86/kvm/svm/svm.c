@@ -392,6 +392,7 @@ static int svm_update_soft_interrupt_rip(struct kvm_vcpu *vcpu, u8 vector)
 static void svm_inject_exception(struct kvm_vcpu *vcpu)
 {
 	struct kvm_queued_exception *ex = &vcpu->arch.exception;
+	bool is_nested = is_fred_enabled(vcpu) && ex->is_nested;
 	struct vcpu_svm *svm = to_svm(vcpu);
 
 	kvm_deliver_exception_payload(vcpu, ex);
@@ -403,6 +404,7 @@ static void svm_inject_exception(struct kvm_vcpu *vcpu)
 	svm->vmcb->control.event_inj = ex->vector
 		| SVM_EVTINJ_VALID
 		| (ex->has_error_code ? SVM_EVTINJ_VALID_ERR : 0)
+		| (is_nested ? SVM_EVTINJ_NESTED_EXCEPTION : 0)
 		| SVM_EVTINJ_TYPE_EXEPT;
 
 	if (is_fred_enabled(vcpu))
@@ -4539,7 +4541,8 @@ static void svm_complete_interrupts(struct kvm_vcpu *vcpu)
 
 		kvm_requeue_exception(vcpu, vector,
 				      exitintinfo & SVM_EXITINTINFO_VALID_ERR,
-				      error_code, false, event_data);
+				      error_code, exitintinfo & SVM_EVTINJ_NESTED_EXCEPTION,
+				      event_data);
 		break;
 	}
 	case SVM_EXITINTINFO_TYPE_INTR:
