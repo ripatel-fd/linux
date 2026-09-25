@@ -2890,6 +2890,39 @@ static bool svm_pat_accesses_gpat(struct kvm_vcpu *vcpu, bool from_host)
 	return !from_host && is_guest_mode(vcpu) && l2_has_separate_pat(vcpu);
 }
 
+#ifdef CONFIG_X86_64
+static_assert(offsetof(struct vmcb_save_area, fred_config) -
+	      offsetof(struct vmcb_save_area, fred_rsp1) ==
+	      (MSR_IA32_FRED_CONFIG - MSR_IA32_FRED_RSP1) * sizeof(u64));
+
+static u64 *fred_msr_to_vmcb_field(struct vcpu_svm *svm, u32 msr)
+{
+	return &svm->vmcb->save.fred_rsp1 + (msr - MSR_IA32_FRED_RSP1);
+}
+
+static u64 svm_read_guest_fred_rsp0(struct vcpu_svm *svm)
+{
+	preempt_disable();
+	if (svm->guest_state_loaded && svm_manages_fred_rsp0(&svm->vcpu))
+		rdmsrq(MSR_IA32_FRED_RSP0, svm->msr_guest_fred_rsp0);
+	preempt_enable();
+
+	return svm->msr_guest_fred_rsp0;
+}
+
+static void svm_write_guest_fred_rsp0(struct vcpu_svm *svm, u64 data)
+{
+	preempt_disable();
+	if (svm->guest_state_loaded && svm_manages_fred_rsp0(&svm->vcpu))
+		wrmsrq(MSR_IA32_FRED_RSP0, data);
+	preempt_enable();
+
+	svm->msr_guest_fred_rsp0 = data;
+}
+#else
+static u64 svm_read_guest_fred_rsp0(struct vcpu_svm *svm) { return 0; }
+#endif
+
 static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
@@ -2927,6 +2960,12 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		break;
 	case MSR_SYSCALL_MASK:
 		msr_info->data = svm->vmcb01.ptr->save.sfmask;
+		break;
+	case MSR_IA32_FRED_RSP0:
+		msr_info->data = svm_read_guest_fred_rsp0(svm);
+		break;
+	case MSR_IA32_FRED_RSP1 ... MSR_IA32_FRED_CONFIG:
+		msr_info->data = *fred_msr_to_vmcb_field(svm, msr_info->index);
 		break;
 #endif
 	case MSR_IA32_SYSENTER_CS:
@@ -3172,6 +3211,12 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		break;
 	case MSR_SYSCALL_MASK:
 		svm->vmcb01.ptr->save.sfmask = data;
+		break;
+	case MSR_IA32_FRED_RSP0:
+		svm_write_guest_fred_rsp0(svm, data);
+		break;
+	case MSR_IA32_FRED_RSP1 ... MSR_IA32_FRED_CONFIG:
+		*fred_msr_to_vmcb_field(svm, ecx) = data;
 		break;
 #endif
 	case MSR_IA32_SYSENTER_CS:
