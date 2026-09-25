@@ -404,6 +404,10 @@ static void svm_inject_exception(struct kvm_vcpu *vcpu)
 		| SVM_EVTINJ_VALID
 		| (ex->has_error_code ? SVM_EVTINJ_VALID_ERR : 0)
 		| SVM_EVTINJ_TYPE_EXEPT;
+
+	if (is_fred_enabled(vcpu))
+		svm->vmcb->control.event_inj_data = ex->event_data;
+
 	svm->vmcb->control.event_inj_err = ex->error_code;
 }
 
@@ -4515,6 +4519,7 @@ static void svm_complete_interrupts(struct kvm_vcpu *vcpu)
 		break;
 	case SVM_EXITINTINFO_TYPE_EXEPT: {
 		u32 error_code = 0;
+		u64 event_data = 0;
 
 		/*
 		 * Never re-inject a #VC exception.
@@ -4525,9 +4530,16 @@ static void svm_complete_interrupts(struct kvm_vcpu *vcpu)
 		if (exitintinfo & SVM_EXITINTINFO_VALID_ERR)
 			error_code = svm->vmcb->control.exit_int_info_err;
 
+		/*
+		 * FRED requires an additional field to pass injected-event
+		 * data to the guest.
+		 */
+		if (is_fred_enabled(vcpu) && (vector == PF_VECTOR || vector == DB_VECTOR))
+			event_data = svm->vmcb->control.exit_int_data;
+
 		kvm_requeue_exception(vcpu, vector,
 				      exitintinfo & SVM_EXITINTINFO_VALID_ERR,
-				      error_code, false, 0);
+				      error_code, false, event_data);
 		break;
 	}
 	case SVM_EXITINTINFO_TYPE_INTR:
@@ -4549,6 +4561,7 @@ static void svm_cancel_injection(struct kvm_vcpu *vcpu)
 
 	control->exit_int_info = control->event_inj;
 	control->exit_int_info_err = control->event_inj_err;
+	control->exit_int_data = control->event_inj_data;
 	control->event_inj = 0;
 	svm_complete_interrupts(vcpu);
 }
