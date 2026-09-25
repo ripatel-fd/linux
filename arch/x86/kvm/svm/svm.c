@@ -3602,6 +3602,11 @@ static void dump_vmcb(struct kvm_vcpu *vcpu)
 	pr_err("%-20s%016llx\n", "allowed_sev_features:", control->allowed_sev_features);
 	pr_err("%-20s%016llx\n", "guest_sev_features:", control->guest_sev_features);
 
+	if (guest_cpu_cap_has(vcpu, X86_FEATURE_FRED)) {
+		pr_err("%-20s%016llx\n", "exit_int_data:", control->exit_int_data);
+		pr_err("%-20s%016llx\n", "event_inj_data:", control->event_inj_data);
+	}
+
 	if (is_sev_es_guest(vcpu)) {
 		save = sev_decrypt_vmsa(vcpu);
 		if (!save)
@@ -3740,6 +3745,27 @@ static void dump_vmcb(struct kvm_vcpu *vcpu)
 		       "r14:", vmsa->r14, "r15:", vmsa->r15);
 		pr_err("%-15s %016llx %-13s %016llx\n",
 		       "xcr0:", vmsa->xcr0, "xss:", vmsa->xss);
+
+		if (guest_cpu_cap_has(vcpu, X86_FEATURE_FRED)) {
+			pr_err("%-27s %d %-18s%016llx\n",
+			       "is_fred_enabled:", is_fred_enabled(vcpu),
+			       "guest_evntinjdata:", vmsa->guest_event_inj_data);
+			pr_err("%-12s %016llx %-18s%016llx\n",
+			       "fred_config:", vmsa->fred_config,
+			       "guest_exitintdata:", vmsa->guest_exit_int_data);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_rsp0:", vmsa->fred_rsp0,
+			       "fred_rsp1:", vmsa->fred_rsp1);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_rsp2:", vmsa->fred_rsp2,
+			       "fred_rsp3:", vmsa->fred_rsp3);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_stklvls:", vmsa->fred_stklvls,
+			       "fred_ssp1:", vmsa->fred_ssp1);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_ssp2:", vmsa->fred_ssp2,
+			       "fred_ssp3:", vmsa->fred_ssp3);
+		}
 	} else {
 		pr_err("%-15s %016llx %-13s %016lx\n",
 		       "rax:", save->rax, "rbx:",
@@ -3767,6 +3793,23 @@ static void dump_vmcb(struct kvm_vcpu *vcpu)
 		       "r14:", vcpu->arch.regs[VCPU_REGS_R14],
 		       "r15:", vcpu->arch.regs[VCPU_REGS_R15]);
 #endif
+		if (guest_cpu_cap_has(vcpu, X86_FEATURE_FRED)) {
+			pr_err("%-15s %-15d %-13s %016llx\n",
+			       "is_fred_enabled:", is_fred_enabled(vcpu),
+			       "fred_config:", save->fred_config);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_rsp0:", svm_read_guest_fred_rsp0(svm),
+			       "fred_rsp1:", save->fred_rsp1);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_rsp2:", save->fred_rsp2,
+			       "fred_rsp3:", save->fred_rsp3);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_stklvls:", save->fred_stklvls,
+			       "fred_ssp1:", save->fred_ssp1);
+			pr_err("%-15s %016llx %-13s %016llx\n",
+			       "fred_ssp2:", save->fred_ssp2,
+			       "fred_ssp3:", save->fred_ssp3);
+		}
 	}
 
 no_vmsa:
