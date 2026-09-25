@@ -1131,6 +1131,11 @@ static void svm_recalc_instruction_intercepts(struct kvm_vcpu *vcpu)
 		svm_set_intercept(svm, INTERCEPT_RDPMC);
 	else
 		svm_clr_intercept(svm, INTERCEPT_RDPMC);
+
+	if (is_fred_enabled(vcpu))
+		svm_clr_intercept(svm, INTERCEPT_ICEBP);
+	else
+		svm_set_intercept(svm, INTERCEPT_ICEBP);
 }
 
 static void svm_recalc_intercepts(struct kvm_vcpu *vcpu)
@@ -1912,6 +1917,9 @@ void svm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 
 	if ((cr4 ^ old_cr4) & (X86_CR4_OSXSAVE | X86_CR4_PKE))
 		vcpu->arch.cpuid_dynamic_bits_dirty = true;
+
+	if ((cr4 ^ old_cr4) & X86_CR4_FRED)
+		kvm_make_request(KVM_REQ_RECALC_INTERCEPTS, vcpu);
 }
 
 static void svm_set_segment(struct kvm_vcpu *vcpu,
